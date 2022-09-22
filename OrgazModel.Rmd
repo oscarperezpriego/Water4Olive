@@ -18,7 +18,7 @@ Here we use the transpiration model proposed by Orgaz et al. (2007) for olive tr
 The interception radiation model for olive canopies is based on a simplified version of Mariscal's model (Mariscal et al 2000). As input data, the model requires two key structural metrics that can be retrieved from LiDAR data such as the amount of foliage (leaf area density, LAD), crown volume (Vc), and planting density (Pd), as well as basic information namely day of the year (DOY) and location of the site (i.e. latitude):
 
 <p>&nbsp;</p>
-  <img align="bottom" width="60%" height="60%" src="/Users/opriego/Library/CloudStorage/OneDrive-UniversidaddeCórdoba/TLS/TranspirationWorkshop/fig1.png">
+  <img align="bottom" width="60%" height="60%" src="/https://github.com/oscarperezpriego/Water4Olive/blob/main/fig1.png">
 <p>&nbsp;</p>
 
 ```{r}
@@ -74,11 +74,11 @@ The interception radiation model for olive canopies is based on a simplified ver
 As an example, we use data from an irrigated olive orchard in Cordoba (Perez-Priego et al., 2010; Villalobos et al 2012). Let take the required inputs data from the table 1 and table 2 for 2th August 2007.
 
 <p>&nbsp;</p>
-  <img align="bottom" width="100%" height="100%" src="/Users/opriego/Library/CloudStorage/OneDrive-UniversidaddeCórdoba/TLS/TranspirationWorkshop/table1.png">
+  <img align="bottom" width="100%" height="100%" src="/https:/github.com/oscarperezpriego/Water4Olive/blob/main/table1.png">
 <p>&nbsp;</p>
 
 <p>&nbsp;</p>
-  <img align="bottom" width="100%" height="100%" src="/Users/opriego/Library/CloudStorage/OneDrive-UniversidaddeCórdoba/TLS/TranspirationWorkshop/table2.png">
+  <img align="bottom" width="100%" height="100%" src="/https://github.com/oscarperezpriego/Water4Olive/blob/main/table2.png">
 <p>&nbsp;</p>
 
 ```{r}
