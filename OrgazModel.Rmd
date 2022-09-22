@@ -1,0 +1,185 @@
+---
+title: "Transpiration model"
+output: html_document
+author: 'Oscar Perez Priego'
+date: '2022-09-20'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Modelling framework
+
+Here we use the transpiration model proposed by Orgaz et al. (2007) for olive trees, which is built on a coupled model of canopy conductance and photosynthesis (Leuning 1995). A Photosynthesis model is embedded into the conductance model so that transpiration is estimated following the classical radiation use efficiency framework (RUE, Monteith 1977). Assuming an empirical relationship between RUE and temperature, transpiration is basically derived as a function of the radiation interception by olive canopies and meteorological data. Therefore, the model assumes that canopy conductance, and therefore transpiration, scale with the fraction of photosynthetic absorbed radiation (fapar), which is derived from tree crown dimension and foliage properties as follow:
+
+## Radiation Interception by Olive Canopies (fPAR)
+
+The interception radiation model for olive canopies is based on a simplified version of Mariscal's model (Mariscal et al 2000). As input data, the model requires two key structural metrics that can be retrieved from LiDAR data such as the amount of foliage (leaf area density, LAD), crown volume (Vc), and planting density (Pd), as well as basic information namely day of the year (DOY) and location of the site (i.e. latitude):
+
+<p>&nbsp;</p>
+  <img align="bottom" width="60%" height="60%" src="/Users/opriego/Library/CloudStorage/OneDrive-UniversidaddeCórdoba/TLS/TranspirationWorkshop/fig1.png">
+<p>&nbsp;</p>
+
+```{r}
+
+  # Defining the model function
+  
+  fapar_model <- function(LAD, Vc, Pd, DOY, Lat){
+    #-- List of input variables
+  #------------------------------------------------------------
+  # Vc:      Crown volume(m−3)
+  # Pd:      Planting density (number of trees per ground m-2)
+  # Rs:      Solar Radiation (MJ m-2)
+  # LAD:     Leaf area density (m-2 m-3)
+  # DOY:     Day of the year (Julian day)
+  # Lat      Latitude (oC)
+    
+  #------------------------------------------------------------
+    
+    # Normalized crown volume (crown volumen per unit ground surface, m3 m-2)
+    
+    Vn <- Vc/Pd 
+    
+    # Empirical parameter m
+    m <- ifelse(10^4/Pd > 400, 0.35, ifelse(
+      10^4/Pd < 400 | 10^4/Pd > 278, 0.2, ifelse(
+         10^4/Pd < 278 | 10^4/Pd > 204, 0.32-0.06*Vn, ifelse(
+           10^4/Pd < 204, 0.23-0.04*Vn, NA
+      ))))
+    
+    a <- m-0.0321*LAD
+    b <- 0.16+0.115*LAD
+    
+    # Calculating declination Angle (Phi)
+    lambda <- Lat
+    
+    Phi <- 23.5*cos((360*(DOY-172)/365)*pi/180)
+    
+    
+    costheta <- sin(lambda*pi/180)*sin(Phi*pi/180)+cos(lambda*pi/180)*cos(Phi*pi/180)
+
+    
+    k <- a+b/costheta
+    
+    
+    fapar <- 1-exp(-k*Vn)
+
+  return(fapar)
+    
+  }
+  
+```
+
+As an example, we use data from an irrigated olive orchard in Cordoba (Perez-Priego et al., 2010; Villalobos et al 2012). Let take the required inputs data from the table 1 and table 2 for 2th August 2007.
+
+<p>&nbsp;</p>
+  <img align="bottom" width="100%" height="100%" src="/Users/opriego/Library/CloudStorage/OneDrive-UniversidaddeCórdoba/TLS/TranspirationWorkshop/table1.png">
+<p>&nbsp;</p>
+
+<p>&nbsp;</p>
+  <img align="bottom" width="100%" height="100%" src="/Users/opriego/Library/CloudStorage/OneDrive-UniversidaddeCórdoba/TLS/TranspirationWorkshop/table2.png">
+<p>&nbsp;</p>
+
+```{r}
+
+# Defining model inputs
+
+LAD <-  1.88
+Vc <-   15.25
+Pd <-   24.5
+DOY <-  214 # August 2th
+Lat <-  38
+  
+fapar <- fapar_model(LAD, Vc, Pd, DOY, Lat)
+
+
+```
+
+## Transpiration Modelling
+
+Once fapar is estimated, the Mean daytime transpiration (W m−2 ) (and canopy conductance) for a given day are calculated as a function of solar radiation (Rs, ), mean daytime temperature (Td, oC), and vapor pressure deficit (VPD, kPa):
+
+```{r}
+
+  # Defining the model 
+  
+  LE_model <- function(fPAR, Rs, Td, VPD, Lat, DOY){
+    #-- List of variables
+  #------------------------------------------------------------
+  # LE:      Latent heat flux (Wm-2)
+  # Ro:      Density of air (kg m−3 )
+  # Gamma:   Psychrometric constant (kPaK−1)
+  # Cp:      Specific heat of air at constant pressure (kJ kg−1 K−1)
+  # fPAR     Daily fraction of intercepted PAR (Photosynthetic Active Radiation, Adimensional)
+  # Rs:      Mean daytime PAR irradiance (W m−2 ) 
+  # Td:      Mean daytime temperature (oC)
+  # a        Empirical constant (2.73)
+  # b        Empirical constant (8.71 oC-1)
+  # VPD      Vapor pressure deficit (kPa)
+  #------------------------------------------------------------
+   
+  # Fixed variables 
+    Patm <- 101.4
+    Ro <- 3.486*Patm/(Td+275.3)
+    Cp <- 1012
+    Gamma <-  0.067
+    a <- 2.73
+    b <- 8.71
+    
+    # Calculating daylength
+    lambda <- Lat
+    
+    Phi <- 23.5*cos((360*(DOY-172)/365)*pi/180)
+    
+    hs <-   acos(-tan(Lat*pi/180)*tan(Phi*pi/180))  # mean daytime length
+    N <-   24*hs/pi  # daytime length
+    
+    # Calculating photosynthetic active radiation (Rsp) from an aprox. with solar radiation
+      
+    Rsp <- Rs*0.45*10^6/3600/N # par (Mj m-2)
+    
+   # Calculating Conductance (or its inverse resistance)
+    Gc <- fapar*Rsp*(a*Td-b)/1000/VPD # (mm s-1)
+    
+    rc <- 1000/Gc
+    
+   # Calculating Transpiration
+    
+    LE <- Ro*Cp/Gamma*VPD/rc # (W m-2)
+    
+    LE_mm <- LE*3600*N/1000000/2.45 # (mm day-1)
+  
+  return(LE_mm)
+    
+  }
+
+  
+```
+
+```{r}
+
+  # Calculating transpiration with input variables from table 1 and 2
+
+Rs <- 24.48
+VPD <- 4
+Td <- 32.41
+
+transpiration <- LE_model(fPAR, Rs, Td, VPD, Lat, DOY)
+
+  
+```
+
+## References
+
+Mariscal, M.J., Orgaz, F., Villalobos, F.J., 2000b. Modelling and measurement of radi- ation interception by olive canopies. Agricultural and Forest Meteorology 100, 183–197.
+
+Monteith JL (1977) Climate and efficiency of crop production in Britain.
+Philosophical Transactions of the Royal Society of London. Series B,
+Biological Sciences 281, 277–294. doi: 10.1098/rstb.1977.0140
+
+Orgaz, F., Villalobos, F.J., Testi, L., Fereres, E., 2007. A model of daily mean canopy con- ductance for calculating transpiration of olive canopies. Functional Plant Biology 34 (3), 178–188.
+
+Pérez-Priego, O., Testi, L., Orgaz, F., Villalobos, F., 2010. A large closed canopy chamber for measuring CO2 and water vapour exchange of whole trees. Envi- ronmental and Experimental Botany 68 (2), 131–138.
+
+Testi, L., Orgaz, F., Villalobos, F.J., 2006. Variations in bulk canopy conductance of an irrigated olive (Olea europaea L.) orchard. Environmental and Experimental Botany 55 (1–2), 15–28.
